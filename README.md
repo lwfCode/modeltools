@@ -1,11 +1,11 @@
-# lwfmodel
+# modeltools
 
 通用多模态大语言模型调用包，支持传入**提示词 + 图片**，将 AI 返回的 JSON 自动反序列化到你自定义的结构体。
 
 ## 安装
 
 ```bash
-go get github.com/leiwenfeng/lwfmodel
+go get github.com/lwfCode/modeltools
 ```
 
 ## 环境变量配置
@@ -19,6 +19,13 @@ go get github.com/leiwenfeng/lwfmodel
 | `MOONSHOT_MAX_TOKENS` | 最大回复 token 数（0 = 不限制）              | —                             |
 
 ## 快速开始
+### 本地运行
+```bash
+go run examples/main.go
+```
+#### 示例如下
+![1](./static/demo.png)
+
 
 ### 1. 纯文本问答
 
@@ -27,7 +34,7 @@ package main
 
 import (
     "fmt"
-    "github.com/leiwenfeng/lwfmodel"
+    "github.com/lwfCode/modeltools"
 )
 
 type TranslateResult struct {
@@ -41,7 +48,7 @@ func main() {
 
 原文：你好，世界`
 
-    res, err := lwfmodel.Run[TranslateResult](prompt, "", true)
+    res, err := modeltools.Run[TranslateResult](prompt, "", true)
     if err != nil {
         panic(err)
     }
@@ -67,9 +74,9 @@ func main() {
 }`
 
     // 支持三种图片来源：
-    // res, err := lwfmodel.Run[ImageAnalysis](prompt, "/path/to/local.jpg", true)
-    // res, err := lwfmodel.Run[ImageAnalysis](prompt, "https://example.com/img.jpg", true)
-    res, err := lwfmodel.Run[ImageAnalysis](prompt, "/path/to/image.jpg", true)
+    // res, err := modeltools.Run[ImageAnalysis](prompt, "/path/to/local.jpg", true)
+    // res, err := modeltools.Run[ImageAnalysis](prompt, "https://example.com/img.jpg", true)
+    res, err := modeltools.Run[ImageAnalysis](prompt, "/path/to/image.jpg", true)
     if err != nil {
         panic(err)
     }
@@ -80,8 +87,8 @@ func main() {
 ### 3. 自定义配置（不依赖环境变量）
 
 ```go
-res, err := lwfmodel.RunWith[ImageAnalysis](
-    lwfmodel.Config{
+res, err := modeltools.RunWith[ImageAnalysis](
+    modeltools.Config{
         APIKey:       "sk-xxxxxxxxxxxxxxxx",
         BaseURL:      "https://api.moonshot.cn/v1",
         Model:        "kimi-k2.5",
@@ -97,8 +104,8 @@ res, err := lwfmodel.RunWith[ImageAnalysis](
 ### 4. 接入本地模型（Ollama 等）
 
 ```go
-res, err := lwfmodel.RunWith[MyResult](
-    lwfmodel.Config{
+res, err := modeltools.RunWith[MyResult](
+    modeltools.Config{
         APIKey:    "ollama",  // 本地模型一般不需要真实 key
         BaseURL:   "http://localhost:11434/v1",
         Model:     "llava",
@@ -141,5 +148,5 @@ type Config struct {
 
 - **JSON 格式**：提示词中须明确告知 AI 只返回 JSON，不要包裹 markdown。
 - **图片压缩**：包内会自动将图片压缩到 768px 以内再发送，减少 token 消耗。
-- **泛型支持**：需要 Go 1.21+。
+- **泛型支持**：需要 Go 1.24+。
 - **模型兼容**：BaseURL 兼容任意 OpenAI 格式接口（Kimi / DeepSeek / Ollama / vLLM 等）。

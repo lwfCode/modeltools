@@ -1,6 +1,8 @@
-module github.com/leiwenfeng/lwfmodel
+module github.com/lwfCode/modeltools
 
-go 1.22
+go 1.24.0
+
+toolchain go1.24.8
 
 require github.com/openai/openai-go/v3 v3.26.0
 

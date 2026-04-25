@@ -1,4 +1,4 @@
-// Package lwfmodel 是一个通用的多模态大语言模型调用包。
+// Package modeltools 是一个通用的多模态大语言模型调用包。
 // 支持传入提示词、图片（本地路径 / URL / base64），将 AI 返回的 JSON 自动反序列化到
 // 调用方自定义的结构体，并可选开启彩色终端打印。
 //
@@ -9,18 +9,19 @@
 //	    Score   float64 `json:"score"`
 //	}
 //
-//	result, err := lwfmodel.Run[MyResult](
-//	    "请分析这张图片并以 JSON 返回：{\"summary\":\"...\",\"score\":0.0}",
+//	result, err := modeltools.Run[MyResult](
+//	    "请分析这张图片并以 JSON 返回：{\"summary\":\"...\"\"score\":0.0}",
 //	    "/path/to/image.jpg",
 //	    true, // 开启终端打印
 //	)
-package lwfmodel
+package modeltools
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -169,28 +170,98 @@ func callLLM[T any](cfg Config, prompt, imageInput string) (*T, string, error) {
 // printResult 将 AI 返回的 JSON 美化后打印到终端。
 func printResult(raw string) {
 	bar := strings.Repeat("─", 52)
-	fmt.Printf("\n\033[1;36m┌%s┐\033[0m\n", bar)
-	fmt.Printf("\033[1;36m│  🤖 AI 返回结果%-28s│\033[0m\n", "")
-	fmt.Printf("\033[1;36m├%s┤\033[0m\n", bar)
+	blue := "\033[1;36m"
+	yellow := "\033[1;33m"
+	red := "\033[1;31m"
+	green := "\033[1;32m"
+	reset := "\033[0m"
+
+	fmt.Printf("\n%s┌%s┐%s\n", blue, bar, reset)
+	fmt.Printf("%s│  🤖 AI 返回结果%-28s│%s\n", blue, "", reset)
+	fmt.Printf("%s├%s┤%s\n", blue, bar, reset)
 
 	var m map[string]interface{}
 	if err := json.Unmarshal([]byte(raw), &m); err == nil {
-		// 美化每个字段
-		for k, v := range m {
-			line := fmt.Sprintf("%v", v)
-			// 超长值截断显示
-			if len(line) > 38 {
-				line = line[:35] + "..."
+		for _, k := range []string{"scene", "risk", "suggestion", "confidence", "level", "alert_type"} {
+			if v, ok := m[k]; ok {
+				printField(k, v, yellow, blue, red, green, reset)
+				delete(m, k)
 			}
-			fmt.Printf("\033[1;36m│\033[0m  \033[1m%-14s\033[0m %-36s\033[1;36m│\033[0m\n",
-				k+":", line)
+		}
+
+		if len(m) > 0 {
+			keys := make([]string, 0, len(m))
+			for k := range m {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				printField(k, m[k], yellow, blue, red, green, reset)
+			}
 		}
 	} else {
-		// 无法解析时原样输出
-		fmt.Printf("\033[1;36m│\033[0m  %s\n", raw)
+		fmt.Printf("%s│%s  %s\n", blue, reset, raw)
 	}
 
-	fmt.Printf("\033[1;36m└%s┘\033[0m\n\n", bar)
+	fmt.Printf("%s└%s┘%s\n\n", blue, bar, reset)
+
+	fmt.Printf("%sJSON 原始结果:%s\n", blue, reset)
+	printJSON(raw, yellow, reset)
+}
+
+func printField(key string, value interface{}, yellow, blue, red, green, reset string) {
+	val := fmt.Sprintf("%v", value)
+	runes := []rune(val)
+	if len(runes) > 38 {
+		val = string(runes[:35]) + "..."
+	}
+
+	color := blue
+	if key == "level" {
+		lower := strings.ToLower(strings.TrimSpace(val))
+		switch lower {
+		case "高", "high":
+			color = red
+		case "中", "middle", "medium":
+			color = yellow
+		case "低", "low":
+			color = green
+		default:
+			color = yellow
+		}
+	}
+
+	fmt.Printf("%s│%s  %s%-14s%s %s%-36s%s%s\n",
+		yellow, reset, yellow, key+":", reset, color, val, reset, blue)
+}
+
+func printJSON(raw, yellow, reset string) {
+	var m map[string]interface{}
+	if err := json.Unmarshal([]byte(raw), &m); err != nil {
+		fmt.Println(raw)
+		return
+	}
+
+	fmt.Printf("%s{\n", yellow)
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for i, k := range keys {
+		v := m[k]
+		val := fmt.Sprintf("%v", v)
+		if _, ok := v.(string); ok {
+			val = fmt.Sprintf("\"%s\"", val)
+		}
+		comma := ","
+		if i == len(keys)-1 {
+			comma = ""
+		}
+		fmt.Printf("  \"%s%s%s\": %s%s%s%s\n",
+			yellow, k, reset, reset, val, reset, comma)
+	}
+	fmt.Printf("}%s\n", reset)
 }
 
 // extractJSON 从 AI 原始输出中提取第一个完整的 JSON 对象。

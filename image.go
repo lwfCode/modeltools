@@ -1,4 +1,4 @@
-package lwfmodel
+package modeltools
 
 import (
 	"bytes"
