@@ -2,6 +2,7 @@
 *.exe
 *.out
 /bin/
+.cursor/
 
 # 本地测试目录（不提交到公共仓库）
 /example/
